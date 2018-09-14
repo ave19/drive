@@ -57,103 +57,74 @@ var tttCmd = &cobra.Command{
 		}
 
 		// Machinery...
-		players := []*ttt.Player{}
-		//games := []*ttt.Game{}
-		var gameChannels []chan ttt.Game
-		ttt.Trace.Println("GameChannels", gameChannels)
+		var players []*ttt.Player
 
-		// Create machine players...
-		// A "human" would use a specical strategy, which we don't have yet...
-		// setting this to zero makes two ai players
-		//numPlayers = 0
-
-		for i := numPlayers; i < 2; i++ {
-			ttt.Trace.Println("Making player:", i+1)
+		for count := 0; count < (2 - numPlayers); count++ {
 			p := ttt.NewPlayer()
-			p.SetName(defaultAiPlayerNames[i])
-			//p.SetNumber(byte(i + 1))
-			p.SetStrategy(defaultAiPlayerStrategies[i])
-			//gameChannel := make(chan ttt.Game)
-			//gameChannels = append(gameChannels, gameChannel)
-			//ttt.Trace.Println("gameChannels", gameChannels)
-			go p.Play()
-			<-p.ReadyChan
+			p.SetName(defaultAiPlayerNames[count])
+			p.SetNumber(byte(count) + 1)
+			p.SetStrategy(defaultAiPlayerStrategies[count])
 			players = append(players, &p)
 		}
 
-		ttt.Trace.Println("len players:", len(players))
-		for i, p := range players {
-			fmt.Printf("Player %d:\n", i+1)
-			fmt.Println("  Name:", p.Name())
-			fmt.Println("  Strategy:", p.Strategy().Name())
-		}
+		ttt.Trace.Printf("players -> %#v\n", players)
 
-		for num := 0; num < numGames; num++ {
+		for game := 0; game < numGames; game++ {
+			b := ttt.NewBoard()
+			fmt.Println("\nGame", game+1)
+			roundOver := false
 
-			var game ttt.Game
-			// Randomly pick which player gets to go first
-			if (rand.Int31n(2)) == 1 {
-				game = ttt.NewGame(*players[0], *players[1])
-			} else {
-				game = ttt.NewGame(*players[1], *players[0])
-			}
+			for count := 0; !roundOver; count++ {
+				fmt.Println("----------------------------------------")
+				fmt.Printf("Round %d:\n", count)
 
-			game.Start()
+				playerSelector := count % len(players)
+				ttt.Trace.Printf("playerSelector = %d\n", playerSelector)
 
-			/*
-				b := ttt.NewBoard()
-				fmt.Println("\nGame", game+1)
-				roundOver := false
-				ttt.Trace.Println("bChannels", bChannels)
-				for count := 0; !roundOver; count++ {
-					fmt.Println("----------------------------------------")
-					fmt.Printf("Round %d:\n", count)
-					playerSelector := count % len(players)
-					player := players[playerSelector]
-					fmt.Println(" - Current Player:", player.Name())
-					ttt.Trace.Println("playerSelector:", playerSelector)
-					fmt.Println(b.Int())
-					fmt.Println(b.String())
-					ttt.Trace.Println("Sending", b.Int(), "to channel", bChannels[playerSelector])
-					bChannels[playerSelector] <- b
-					ttt.Trace.Println("Listening to moveChan", player.MoveChan)
-					b.Move(<-player.MoveChan, player.Number())
-					if count >= int(b.NumSquares) {
-						roundOver = true
-					}
-					win, mark := b.Winner()
-					if win {
-						fmt.Println("==============================================")
-						for _, p := range players {
-							if p.Number() == mark {
-								fmt.Println("Winner: ", p.Name())
-								p.Win(b)
-							} else {
-								fmt.Println("Loser: ", p.Name())
-								p.Lose(b)
-							}
+				player := players[playerSelector]
+				fmt.Println(" - Current Player:", player.Name())
+				ttt.Trace.Println("playerSelector:", playerSelector)
+				fmt.Println(b.Int())
+				fmt.Println(b.String())
+				choice := player.Move(b)
+				ttt.Trace.Printf("Choice is %d\n", choice)
+				b.Move(choice, player.Number())
+				if count >= int(b.NumSquares) {
+					roundOver = true
+				}
+				win, mark := b.Winner()
+				if win {
+					fmt.Println("==============================================")
+					for _, p := range players {
+						if p.Number() == mark {
+							fmt.Println("Winner: ", p.Name())
+							p.Win(b)
+						} else {
+							fmt.Println("Loser: ", p.Name())
+							p.Lose(b)
 						}
+					}
+					roundOver = true
+				} else {
+					remainingSquares := len(b.ListEmptySquares())
+					if remainingSquares == 0 {
+						fmt.Println("It was a tie.")
 						roundOver = true
-					} else {
-						remainingSquares := len(b.ListEmptySquares())
-						if remainingSquares == 0 {
-							fmt.Println("It was a tie.")
-							roundOver = true
-							for _, p := range players {
-								p.Draw(b)
-							}
+						for _, p := range players {
+							p.Draw(b)
 						}
 					}
 				}
-				fmt.Println("Final Board:")
-				fmt.Println(b.Int())
-				fmt.Println(b.String())
-			*/
-		}
+			}
 
-		for _, p := range players {
-			p.Stats(os.Stdout)
-			fmt.Println()
+			fmt.Println("Final Board:")
+			fmt.Println(b.Int())
+			fmt.Println(b.String())
+
+			for _, p := range players {
+				p.Stats(os.Stdout)
+				fmt.Println()
+			}
 		}
 	},
 }
